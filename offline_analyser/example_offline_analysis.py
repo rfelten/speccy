@@ -1,10 +1,11 @@
-from spectrum_file import SpectrumFileReader
 import cPickle
 import os
+import sys
+sys.path.insert(1, os.path.join(sys.path[0], '..'))
+from spectrum_file import SpectrumFileReader
 
 
 def process(fn):
-    print "processing '%s':" % fn
     f = open(fn, 'r')
     while True:
         try:
@@ -17,9 +18,10 @@ def process(fn):
 
 # open all .bin files and process content
 def main():
-    for fn in os.listdir("./spectral_data"):
+    path_to_dumps = "../spectral_data"
+    for fn in os.listdir(path_to_dumps):
         if fn.endswith(".bin"):
-            process("./spectral_data/"+fn)
+            process(path_to_dumps + os.path.sep + fn)
 
 if __name__ == '__main__':
     main()
