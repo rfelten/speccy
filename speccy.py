@@ -231,14 +231,15 @@ class Speccy(object):
             if scanner.file_reader.sample_queue.empty():
                 continue
 
-            ts, xydata = scanner.file_reader.sample_queue.get()
+            xydata = scanner.file_reader.sample_queue.get()
             if self.dump_to_file:
-                cPickle.dump((scanner.idx, ts, xydata), self.dump_file)
+                cPickle.dump((scanner.idx, xydata), self.dump_file)
 
             if not self.ui_update:
                 continue
 
-            for (tsf, freq_cf, noise, rssi, pwr) in SpectrumFileReader.decode(xydata):
+            for (ts_sec, ts_nsec, tsf, freq_cf, noise, rssi, pwr) in SpectrumFileReader.decode(xydata):
+
                 if scanner.mode.value == 1 and freq_cf < self.last_x:  # chanscan
                     # we wrapped the scan...
                     self.hmp_gen += 1

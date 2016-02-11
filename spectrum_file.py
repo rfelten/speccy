@@ -4,7 +4,6 @@ import time
 import threading
 import math
 from Queue import Queue
-from datetime import datetime
 
 # FIXME: add support for 5MHz + 10MHz wide channel?
 
@@ -37,15 +36,14 @@ class SpectrumFileReader(object):
         while not self.reader_thread_stop:
             if self.reader_thread_pause:
                 continue
-            ts = datetime.now()
             data = self.fp.read()
             if not data:
                 time.sleep(.05)
                 continue
-            self.sample_queue.put((ts, data))
+            self.sample_queue.put(data)
 
     # spectral scan packet format constants
-    hdrsize = 3
+    hdrsize = 3 + 8+4
     type1_pktsize = 17 + 56
     type2_pktsize = 24 + 128
     type3_pktsize = 26 + 64
@@ -65,10 +63,10 @@ class SpectrumFileReader(object):
         pos = 0
         while pos < len(data) - SpectrumFileReader.hdrsize + 1:
 
-            (stype, slen) = struct.unpack_from(">BH", data, pos)
+            (stype, slen, ts_sec, ts_nsec) = struct.unpack_from(">BHQL", data, pos)
 
-            if not ((stype == 1 and slen == SpectrumFileReader.type1_pktsize) or
-                    (stype == 2 and slen == SpectrumFileReader.type2_pktsize) or
+            if not ((stype == 11 and slen == SpectrumFileReader.type1_pktsize) or
+                    (stype == 12 and slen == SpectrumFileReader.type2_pktsize) or
                     (stype == 3 and slen == SpectrumFileReader.type3_pktsize)):
                 print "skip malformed packet"
                 break  # header malformed, discard data. This event is very unlikely (once in ~3h)
@@ -76,7 +74,7 @@ class SpectrumFileReader(object):
                 # for only one or too "rescued" samples every 2-3 hours
 
             # 20 MHz
-            if stype == 1:
+            if stype == 11:
                 if pos >= len(data) - SpectrumFileReader.hdrsize - SpectrumFileReader.type1_pktsize + 1:
                     break
                 pos += SpectrumFileReader.hdrsize
@@ -110,10 +108,10 @@ class SpectrumFileReader(object):
                     sigval = noise + rssi + 20 * math.log10(sample) - sumsq_sample
                     pwr[subcarrier_freq] = sigval
 
-                yield (tsf, freq, noise, rssi, pwr)
+                yield (ts_sec, ts_nsec, tsf, freq, noise, rssi, pwr)
 
             # 40 MHz
-            elif stype == 2:
+            elif stype == 12:
                 if pos >= len(data) - SpectrumFileReader.hdrsize - SpectrumFileReader.type2_pktsize + 1:
                     break
                 pos += SpectrumFileReader.hdrsize
@@ -167,7 +165,7 @@ class SpectrumFileReader(object):
                     subcarrier_freq = first_sc + i*SpectrumFileReader.sc_wide
                     pwr[subcarrier_freq] = sigval
 
-                yield (tsf, freq, (noise_l+noise_u)/2, (rssi_l+rssi_u)/2, pwr)
+                yield (ts_sec, ts_nsec, tsf, freq, (noise_l+noise_u)/2, (rssi_l+rssi_u)/2, pwr)
 
 
             # ath10k
